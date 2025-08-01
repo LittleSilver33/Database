@@ -28,15 +28,15 @@ bool OSInterface::Open(const std::string& filename) {
     return is_open_;
 }
 
-bool OSInterface::ReadPage(uint32_t page_num, void* dest, size_t page_size) {
-    file_.seekg(page_num * page_size, std::ios::beg);
-    file_.read(reinterpret_cast<char*>(dest), page_size);
+bool OSInterface::ReadPage(uint32_t page_num, std::span<std::byte> dest) {
+    file_.seekg(static_cast<std::streamoff>(page_num) * dest.size_bytes(), std::ios::beg);
+    file_.read(reinterpret_cast<char*>(dest.data()), dest.size_bytes());
     return file_.good();
 }
 
-bool OSInterface::WritePage(uint32_t page_num, void* dest, size_t page_size) {
-    file_.seekp(page_num * page_size, std::ios::beg);
-    file_.read(reinterpret_cast<char*>(dest), page_size);
+bool OSInterface::WritePage(uint32_t page_num, std::span<const std::byte> src) {
+    file_.seekp(static_cast<std::streamoff>(page_num) * src.size_bytes(), std::ios::beg);
+    file_.write(reinterpret_cast<const char*>(src.data()), src.size_bytes());
     return file_.good();
 }
 
