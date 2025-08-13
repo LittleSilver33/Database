@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
-#include "../hdrs/b_plus_tree.h"
+#include <gtest/gtest.h>
+#include "b_plus_tree.h"
 
 class BPlusTreeTest {
 public:
@@ -45,7 +46,6 @@ public:
     }
 };
 
-int main() {
+TEST(BPlusTreeTest, TestInsertionNoSplit) {
     BPlusTreeTest::TestInsertionNoSplit();
-    return 0;
 }
