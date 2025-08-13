@@ -1,4 +1,4 @@
-#include "../hdrs/os_interface.h"
+#include "os_interface.h"
 
 #include <iostream>
 #include <fcntl.h>

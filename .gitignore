@@ -1,0 +1,20 @@
+# Ignore build directory
+/build/
+
+# Ignore CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Ignore executables
+*.out
+*.exe
+*.a
+*.o
+*.so
+*.dll
+
+# Misc
+.vscode
+.vs
+.DS_Store
