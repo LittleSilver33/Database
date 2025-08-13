@@ -11,6 +11,8 @@
 #include <cstring>
 #include <span>
 
+static constexpr uint32_t INVALID_PAGE = 0;
+
 // ----- Node Headers -----
 enum class NodeType : uint8_t {
     Leaf = 0,
@@ -90,7 +92,8 @@ private:
 
 template <typename KeyType, typename ValueType>
 BPlusTree<KeyType, ValueType>::BPlusTree(const std::string& filename, uint32_t order)
-    : order_(order), root_page_(1) {
+    : root_page_(0), order_(order) {
+    next_page_ = 1;
     bool opened = os_.Open(filename);
     assert(opened);  // Or handle error as needed
 }
@@ -103,6 +106,19 @@ BPlusTree<Key, Value>::~BPlusTree() {
 
 template <typename Key, typename Value>
 bool BPlusTree<Key, Value>::Insert(const Key& key, const Value& value) {
+    if (root_page_ == INVALID_PAGE) {
+        LeafNode<Key, Value> root;
+        root.next_leaf_page_ = 0;  // no next leaf
+        root.keys_.push_back(key);
+        root.values_.push_back({ value });  // initialize vector of values for the key
+    
+        root_page_ = AllocatePage();
+        std::vector<std::byte> page(PAGE_SIZE);
+        SerializeLeaf(root, page);
+        WritePage(root_page_, page);
+        return true;
+    }
+    
     std::optional<std::pair<Key, uint32_t>> promoted;
     InsertRecursive(root_page_, key, value, promoted);
 

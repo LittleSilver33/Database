@@ -1,6 +1,6 @@
 #include <cassert>
 #include <iostream>
-#include "../hdrs/bplus_tree.h"
+#include "../hdrs/b_plus_tree.h"
 
 class BPlusTreeTest {
 public:
