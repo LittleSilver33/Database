@@ -73,9 +73,12 @@ ExprPtr Parser::parsePrimary(){
 }
 
 ExprPtr Parser::parseUnary() {
-    if (accept(TokenType::KwNot)) {
+    if (accept(TokenType::KwNot))
         return std::make_unique<Unary>(Unary::Op::Not, parseUnary());
-    }
+    if (accept(TokenType::Minus))
+        return std::make_unique<Unary>(Unary::Op::Minus, parseUnary());
+    if (accept(TokenType::Plus))
+        return std::make_unique<Unary>(Unary::Op::Plus, parseUnary());
     return parsePrimary();
 }
 
@@ -90,8 +93,7 @@ Binary::Op Parser::binOpFrom(TokenType k) {
         case TokenType::KwAnd: return Binary::Op::And;
         case TokenType::KwOr: return Binary::Op::Or;
         default: 
-            std::cerr << "Unexpected binary operator: " << static_cast<int>(k) << std::endl;
-            return Binary::Op::Add;
+            throw std::runtime_error("Unexpected binary operator: " + std::to_string(static_cast<int>(k)));
     }
 }
 

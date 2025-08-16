@@ -17,7 +17,8 @@ enum class TokenType {
     Star, Comma, LParen, RParen,
     Eq, Ne, Lt, Le, Gt, Ge,
     // Math ops
-    // Plus, Minus, Mul, Div
+    Plus, Minus, 
+    // Mul, Div
 };
 
 struct Token {
