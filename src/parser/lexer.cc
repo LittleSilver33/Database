@@ -14,9 +14,9 @@ char Lexer::lower(char c) {
 
 void Lexer::bump() { 
     if (i < sv.size()) { 
-        if (sv[i]=='\n') { 
+        if (sv[i] == '\n') { 
             loc.line++; 
-            loc.col=1; 
+            loc.col = 1; 
         } else { 
             loc.col++; 
         } 
@@ -29,7 +29,7 @@ char Lexer::peek(size_t k) const {
     return (i + k < sv.size()) ? sv[i + k] : '\0';
 }
 
-bool Lexer::ieq(std::string_view a, std::string_view b) { 
+bool Lexer::iequals(std::string_view a, std::string_view b) { 
     if (a.size() != b.size()) return false;
 
     for (size_t k = 0; k < a.size(); k++) { 
@@ -41,17 +41,17 @@ bool Lexer::ieq(std::string_view a, std::string_view b) {
 }
 
 TokenType Lexer::parseKw(std::string_view s){
-    if (ieq(s,"select")) return TokenType::KwSelect;
-    if (ieq(s,"from"))   return TokenType::KwFrom;
-    if (ieq(s,"where"))  return TokenType::KwWhere;
-    if (ieq(s,"insert")) return TokenType::KwInsert;
-    if (ieq(s,"into"))   return TokenType::KwInto;
-    if (ieq(s,"values")) return TokenType::KwValues;
-    if (ieq(s,"update")) return TokenType::KwUpdate;
-    if (ieq(s,"set"))    return TokenType::KwSet;
-    if (ieq(s,"and"))    return TokenType::KwAnd;
-    if (ieq(s,"or"))     return TokenType::KwOr;
-    if (ieq(s,"not"))    return TokenType::KwNot;
+    if (iequals(s,"select")) return TokenType::KwSelect;
+    if (iequals(s,"from"))   return TokenType::KwFrom;
+    if (iequals(s,"where"))  return TokenType::KwWhere;
+    if (iequals(s,"insert")) return TokenType::KwInsert;
+    if (iequals(s,"into"))   return TokenType::KwInto;
+    if (iequals(s,"values")) return TokenType::KwValues;
+    if (iequals(s,"update")) return TokenType::KwUpdate;
+    if (iequals(s,"set"))    return TokenType::KwSet;
+    if (iequals(s,"and"))    return TokenType::KwAnd;
+    if (iequals(s,"or"))     return TokenType::KwOr;
+    if (iequals(s,"not"))    return TokenType::KwNot;
     return TokenType::Ident;
 }
 

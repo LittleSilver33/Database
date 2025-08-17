@@ -50,14 +50,14 @@ struct Unary : Expr {
 // Represents a binary operation (e.g. expr1 AND expr2, expr1 = expr2)
 struct Binary : Expr {
     enum class Op { 
-      Eq, // Equal
-      Ne, // Not Equal
-      Lt, // Less Than
-      Le, // Less Than or Equal
-      Gt, // Greater Than
-      Ge, // Greater Than or Equal
-      And,
-      Or
+        Eq, // Equal
+        Ne, // Not Equal
+        Lt, // Less Than
+        Le, // Less Than or Equal
+        Gt, // Greater Than
+        Ge, // Greater Than or Equal
+        And,
+        Or
     };
 
     Op op;

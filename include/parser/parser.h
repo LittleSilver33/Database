@@ -9,6 +9,7 @@ class Parser {
 public:
     explicit Parser(std::string_view sql);
 
+    // Parse a complete SQL statement into AST
     StmtPtr parseStatement();
 
 private:
@@ -16,6 +17,7 @@ private:
     Token cur;
 
     [[noreturn]] void error(const std::string& msg);
+
     void consume(TokenType k, const char* what);
     bool accept(TokenType k);
 

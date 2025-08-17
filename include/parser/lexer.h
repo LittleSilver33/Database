@@ -40,6 +40,7 @@ class Lexer {
 public:
     explicit Lexer(std::string_view input): sv(input) {}
 
+    // Get the next token
     Token next();
 
 private:
@@ -47,11 +48,24 @@ private:
     size_t i = 0;
     Loc loc{};
 
+    // Check if a character can start an identifier
     static bool isIdentStart(char c);
+
+    // Check if a character can be part of an identifier
     static bool isIdentCont(char c);
+
+    // Convert a character to lowercase
     static char lower(char c);
+
+    // Consume whitespace and update location
     void bump();
-    char peek(size_t k=0) const;
-    static bool ieq(std::string_view a, std::string_view b);
+
+    // Peek at the next character without consuming it
+    char peek(size_t k = 0) const;
+
+    // Case-insensitive string comparison
+    static bool iequals(std::string_view a, std::string_view b);
+
+    // Parse a keyword from an identifier
     TokenType parseKw(std::string_view s);
 };
