@@ -1,6 +1,5 @@
 /*
     Abstract Syntax Tree (AST) definitions for a simple SQL-like language.
-    Supports basic SELECT, INSERT, and UPDATE statements with expressions.
 */
 
 #pragma once
@@ -14,6 +13,8 @@
 // Base class for all expressions
 struct Expr {
     virtual ~Expr() = default;
+
+    std::string to_string() const;
 };
 
 using ExprPtr = std::unique_ptr<Expr>;
@@ -23,6 +24,8 @@ struct Literal : Expr {
     using Value = std::variant<int64_t, double, std::string>;
     Value value;
     explicit Literal(Value v) : value(std::move(v)) {}
+
+    std::string to_string() const;
 };
 
 // Represents an identifier (e.g. column name)
@@ -88,45 +91,3 @@ struct Update : Stmt {
     std::vector<std::pair<std::string, ExprPtr>> assignments;
     std::optional<ExprPtr> where;
 };
-
-// A tiny printer (useful for sanity checks)
-inline std::string to_string(const Expr&);
-
-inline std::string to_string(const Literal::Value& v) {
-    if (std::holds_alternative<int64_t>(v)) return std::to_string(std::get<int64_t>(v));
-    if (std::holds_alternative<double>(v))  return std::to_string(std::get<double>(v));
-    return "'" + std::get<std::string>(v) + "'";
-}
-
-inline std::string to_string(const Expr& e) {
-    if (auto p = dynamic_cast<const Literal*>(&e)) {
-        return to_string(p->value);
-    }
-
-    if (auto p = dynamic_cast<const Identifier*>(&e)) {
-        return p->name;
-    }
-
-    if (auto p = dynamic_cast<const Unary*>(&e)) {
-        std::string op = (p->op==Unary::Op::Plus?"+":p->op==Unary::Op::Minus?"-":"NOT ");
-        return op + "(" + to_string(*p->rhs) + ")";
-    }
-
-    if (auto p = dynamic_cast<const Binary*>(&e)) {
-        auto opToStr = [](Binary::Op o)->const char*{
-            switch(o){
-                case Binary::Op::Eq:  return "=";
-                case Binary::Op::Ne:  return "!=";
-                case Binary::Op::Lt:  return "<";
-                case Binary::Op::Le:  return "<=";
-                case Binary::Op::Gt:  return ">";
-                case Binary::Op::Ge:  return ">=";
-                case Binary::Op::And: return "AND";
-                case Binary::Op::Or:  return "OR";
-            }
-            return "?";
-        };
-        return "(" + to_string(*p->lhs) + " " + opToStr(p->op) + " " + to_string(*p->rhs) + ")";
-    }
-    return "<?expr?>";
-}

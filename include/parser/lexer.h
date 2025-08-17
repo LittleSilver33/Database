@@ -5,7 +5,11 @@
 #include <stdexcept>
 #include <vector>
 
-struct Loc { size_t pos=0, line=1, col=1; };
+struct Loc { 
+    size_t pos = 0;
+    size_t line = 1;
+    size_t col = 1;
+};
 
 enum class TokenType {
     End,
@@ -16,7 +20,7 @@ enum class TokenType {
     // Punctuation / ops
     Star, Comma, LParen, RParen,
     Eq, Ne, Lt, Le, Gt, Ge,
-    // Math ops
+    // Unary ops
     Plus, Minus, 
     // Mul, Div
 };
@@ -24,7 +28,11 @@ enum class TokenType {
 struct Token {
     TokenType kind{TokenType::End};
     std::string text; // raw spelling (for Ident/Str)
-    int64_t i64{}; double f64{}; // literal storage
+
+    // Literal storage
+    int64_t i64{}; 
+    double f64{};
+
     Loc loc{};
 };
 
@@ -35,9 +43,9 @@ public:
     Token next();
 
 private:
-    std::string_view sv; 
-    size_t i = 0; 
-    Loc loc;
+    std::string_view sv;
+    size_t i = 0;
+    Loc loc{};
 
     static bool isIdentStart(char c);
     static bool isIdentCont(char c);

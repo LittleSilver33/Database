@@ -13,7 +13,7 @@ char Lexer::lower(char c) {
 }
 
 void Lexer::bump() { 
-    if (i<sv.size()) { 
+    if (i < sv.size()) { 
         if (sv[i]=='\n') { 
             loc.line++; 
             loc.col=1; 
@@ -26,13 +26,13 @@ void Lexer::bump() {
 }
 
 char Lexer::peek(size_t k) const { 
-    return (i+k<sv.size()) ? sv[i+k] : '\0';
+    return (i + k < sv.size()) ? sv[i + k] : '\0';
 }
 
 bool Lexer::ieq(std::string_view a, std::string_view b) { 
     if (a.size() != b.size()) return false;
 
-    for (size_t k = 0; k < a.size(); ++k) { 
+    for (size_t k = 0; k < a.size(); k++) { 
         if (std::tolower((unsigned char)a[k]) != std::tolower((unsigned char)b[k])) {
             return false; 
         }
@@ -70,21 +70,60 @@ Token Lexer::next() {
     }
 
     switch (c) {
-        case '*': bump(); t.kind = TokenType::Star;  return t;
-        case ',': bump(); t.kind = TokenType::Comma; return t;
-        case '(': bump(); t.kind = TokenType::LParen; return t;
-        case ')': bump(); t.kind = TokenType::RParen; return t;
-        case '=': bump(); t.kind = TokenType::Eq; return t;
+        case '*': 
+            bump();
+            t.kind = TokenType::Star;
+            return t;
+        case ',':
+            bump();
+            t.kind = TokenType::Comma;
+            return t;
+        case '(': 
+            bump();
+            t.kind = TokenType::LParen;
+            return t;
+        case ')': 
+            bump();
+            t.kind = TokenType::RParen;
+            return t;
+        case '=': 
+            bump();
+            t.kind = TokenType::Eq;
+            return t;
         case '!':
-            if (peek(1) == '=') { bump(); bump(); t.kind = TokenType::Ne; return t; }
+            if (peek(1) == '=') { 
+                bump(); 
+                bump(); 
+                t.kind = TokenType::Ne; 
+                return t; 
+            }
             break;
         case '<':
-            if (peek(1) == '=') { bump(); bump(); t.kind = TokenType::Le; return t; }
-            if (peek(1) == '>') { bump(); bump(); t.kind = TokenType::Ne; return t; }
-            bump(); t.kind = TokenType::Lt; return t;
+            if (peek(1) == '=') { 
+                bump(); 
+                bump(); 
+                t.kind = TokenType::Le; 
+                return t; 
+            }
+            if (peek(1) == '>') { 
+                bump(); 
+                bump(); 
+                t.kind = TokenType::Ne; 
+                return t; 
+            }
+            bump(); 
+            t.kind = TokenType::Lt; 
+            return t;
         case '>':
-            if (peek(1) == '=') { bump(); bump(); t.kind = TokenType::Ge; return t; }
-            bump(); t.kind = TokenType::Gt; return t;
+            if (peek(1) == '=') { 
+                bump(); 
+                bump(); 
+                t.kind = TokenType::Ge; 
+                return t; 
+            }
+            bump(); 
+            t.kind = TokenType::Gt; 
+            return t;
     }
 
     if (c == '\'') {
