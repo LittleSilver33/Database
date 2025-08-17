@@ -15,8 +15,9 @@ static constexpr uint32_t INVALID_PAGE = 0;
 
 // ----- Node Headers -----
 enum class NodeType : uint8_t {
-    Leaf = 0,
-    Internal = 1
+    Invalid = 0,
+    Leaf = 1,
+    Internal = 2
 };
 
 // ----- Node Structures -----
@@ -28,8 +29,6 @@ public:
     std::vector<Key> keys_;
     std::vector<std::vector<Value>> values_;
     uint32_t next_leaf_page_;
-
-    friend class BPlusTreeTest;
 };
 
 template <typename Key>
@@ -40,8 +39,6 @@ public:
     std::vector<Key> keys_;
     std::vector<uint32_t> children_; // length = keys + 1
     bool is_root_;
-
-    friend class BPlusTreeTest;
 };
 
 // ----- B+ Tree -----
@@ -54,6 +51,18 @@ public:
     ~BPlusTree();
 
     bool Insert(const Key& key, const Value& value);
+
+    // --- debug / test visibility helpers ---
+    uint32_t DebugRootPage() const { return root_page_; }
+
+    bool DebugReadPage(uint32_t page_num, std::vector<std::byte>& out) {
+        out.resize(PAGE_SIZE);
+        return os_.ReadPage(page_num, std::span<std::byte>(out.data(), out.size()));
+    }
+
+    void DebugDeserializeLeaf(std::span<const std::byte> page, LeafNode<Key, Value>& node) {
+        DeserializeLeaf(page, node);
+    }
 
 private:
     OSInterface os_;
@@ -84,15 +93,13 @@ private:
 
     bool ReadPage(uint32_t page, std::span<std::byte> buf);
     bool WritePage(uint32_t page, std::span<const std::byte> buf);
-
-    friend class BPlusTreeTest;
 };
 
 // ----- Implementation -----
 
 template <typename KeyType, typename ValueType>
 BPlusTree<KeyType, ValueType>::BPlusTree(const std::string& filename, uint32_t order)
-    : root_page_(0), order_(order) {
+    : root_page_(INVALID_PAGE), order_(order) {
     next_page_ = 1;
     bool opened = os_.Open(filename);
     assert(opened);  // Or handle error as needed
@@ -248,7 +255,8 @@ void BPlusTree<Key, Value>::SplitInternal(uint32_t page_num, InternalNode<Key>& 
 
 template <typename Key, typename Value>
 bool BPlusTree<Key, Value>::IsLeaf(std::span<const std::byte> page) {
-    return static_cast<NodeType>(page[0]) == NodeType::Leaf;
+    auto t = static_cast<NodeType>(page[0]);
+    return t == NodeType::Leaf;
 }
 
 template <typename Key, typename Value>

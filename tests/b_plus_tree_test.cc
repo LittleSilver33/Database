@@ -2,50 +2,64 @@
 #include <iostream>
 #include <gtest/gtest.h>
 #include "b_plus_tree.h"
+#include <memory>
 
-class BPlusTreeTest {
-public:
-    static void TestInsertionNoSplit() {
-        constexpr int ORDER = 4;
-        BPlusTree<int, std::string> tree("Test_Database.db", ORDER);
+class BPlusTreeTest : public ::testing::Test {
+protected:
+    static constexpr int ORDER = 4;
+    std::string filename = "Test_Database.db";
+    std::unique_ptr<BPlusTree<int, int>> tree;
 
-        // Insert keys fewer than order to avoid splitting.
-        tree.Insert(10, "ten");
-        tree.Insert(20, "twenty");
-        tree.Insert(30, "thirty");
+    void ClearDatabase() {
+        // Remove the old file if it exists
+        std::remove(filename.c_str());
 
-        // Root page should be a leaf node.
-        std::vector<std::byte> page(4096);
-        bool ok = tree.os_.ReadPage(tree.root_page_, page);
-        assert(ok);
+        // Recreate a fresh BPlusTree
+        tree = std::make_unique<BPlusTree<int, int>>(filename, ORDER);
+    }
 
-        // Check node type
-        assert(static_cast<int>(page[0]) == static_cast<int>(NodeType::Leaf));
+    void SetUp() override {
+        ClearDatabase();
+    }
 
-        // Deserialize to check contents
-        LeafNode<int, std::string> node;
-        tree.DeserializeLeaf(page, node);
-
-        // Check keys count
-        assert(node.keys_.size() == 3);
-
-        // Check keys order
-        assert(node.keys_[0] == 10);
-        assert(node.keys_[1] == 20);
-        assert(node.keys_[2] == 30);
-
-        // Check values
-        assert(node.values_[0].size() == 1 && node.values_[0][0] == "ten");
-        assert(node.values_[1].size() == 1 && node.values_[1][0] == "twenty");
-        assert(node.values_[2].size() == 1 && node.values_[2][0] == "thirty");
-
-        // Check next leaf pointer is zero (no next leaf)
-        assert(node.next_leaf_page_ == 0);
-
-        std::cout << "TestInsertionNoSplit passed!\n";
+    void TearDown() override {
+        // Optionally cleanup at the end of each test
+        tree.reset();
+        std::remove(filename.c_str());
     }
 };
 
-TEST(BPlusTreeTest, TestInsertionNoSplit) {
-    BPlusTreeTest::TestInsertionNoSplit();
+TEST_F(BPlusTreeTest, InsertionNoSplit) {
+    // Insert fewer than ORDER keys so leaf doesn't split (max keys = order - 1 = 3)
+    tree->Insert(10, 100);
+    tree->Insert(20, 200);
+    tree->Insert(30, 300);
+
+    // Read root page
+    std::vector<std::byte> page;
+    ASSERT_TRUE(tree->DebugReadPage(tree->DebugRootPage(), page));
+
+    // Check node type byte
+    ASSERT_EQ(static_cast<int>(page[0]), static_cast<int>(NodeType::Leaf));
+
+    // Deserialize and validate contents
+    LeafNode<int, int> node;
+    tree->DebugDeserializeLeaf(page, node);
+
+    ASSERT_EQ(node.keys_.size(), 3u);
+    EXPECT_EQ(node.keys_[0], 10);
+    EXPECT_EQ(node.keys_[1], 20);
+    EXPECT_EQ(node.keys_[2], 30);
+
+    ASSERT_EQ(node.values_.size(), 3u);
+    ASSERT_EQ(node.values_[0].size(), 1u);
+    ASSERT_EQ(node.values_[1].size(), 1u);
+    ASSERT_EQ(node.values_[2].size(), 1u);
+
+    EXPECT_EQ(node.values_[0][0], 100);
+    EXPECT_EQ(node.values_[1][0], 200);
+    EXPECT_EQ(node.values_[2][0], 300);
+
+    // Next leaf pointer should be 0 (none)
+    EXPECT_EQ(node.next_leaf_page_, 0u);
 }
