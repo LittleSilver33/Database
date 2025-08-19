@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <cstring>
 #include <span>
+#include <queue>
+#include <iostream>
+#include <variant>
 
 static constexpr uint32_t INVALID_PAGE = 0;
 
@@ -64,6 +67,12 @@ public:
         DeserializeLeaf(page, node);
     }
 
+    void DebugDeserializeInternal(std::span<const std::byte> page, InternalNode<Key>& node) {
+        DeserializeInternal(page, node);
+    }
+
+    void DebugPrintTree();
+
 private:
     OSInterface os_;
     uint32_t root_page_;
@@ -96,6 +105,69 @@ private:
 };
 
 // ----- Implementation -----
+template <typename Key, typename Value>
+void BPlusTree<Key, Value>::DebugPrintTree() {
+    if (root_page_ == 0) {
+        std::cout << "[Empty tree]" << std::endl;
+        return;
+    }
+
+    std::queue<std::pair<uint32_t, int>> q; // (page_num, level)
+    q.push({root_page_, 0});
+
+    int current_level = 0;
+    std::cout << "B+ Tree Layout:" << std::endl;
+
+    while (!q.empty()) {
+        auto [page_num, level] = q.front();
+        q.pop();
+
+        if (level != current_level) {
+            std::cout << "\n"; // new level
+            current_level = level;
+        }
+
+        std::vector<std::byte> buf;
+        if (!DebugReadPage(page_num, buf)) {
+            std::cout << "[Page " << page_num << " read failed]  ";
+            continue;
+        }
+
+        if (IsLeaf(buf)) {
+            LeafNode<Key, Value> leaf;
+            DebugDeserializeLeaf(buf, leaf);
+
+            std::cout << "[Leaf p" << page_num << " keys={";
+            for (size_t i = 0; i < leaf.keys_.size(); i++) {
+                std::cout << leaf.keys_[i] << ":";
+                for (size_t j = 0; j < leaf.values_[i].size(); j++) {
+                    std::cout << leaf.values_[i][j];
+                    if (j + 1 < leaf.values_[i].size()) std::cout << ",";
+                }
+                if (i + 1 < leaf.keys_.size()) std::cout << " ";
+            }
+            std::cout << "} next=" << leaf.next_leaf_page_ << "]  ";
+        } else {
+            InternalNode<Key> internal;
+            DebugDeserializeInternal(buf, internal);
+
+            std::cout << "[Internal p" << page_num << " keys={";
+            for (size_t i = 0; i < internal.keys_.size(); i++) {
+                std::cout << internal.keys_[i];
+                if (i + 1 < internal.keys_.size()) std::cout << " ";
+            }
+            std::cout << "} children={";
+            for (size_t i = 0; i < internal.children_.size(); i++) {
+                std::cout << internal.children_[i];
+                if (i + 1 < internal.children_.size()) std::cout << " ";
+                q.push({internal.children_[i], level + 1});
+            }
+            std::cout << "}]  ";
+        }
+    }
+
+    std::cout << "\n";
+}
 
 template <typename KeyType, typename ValueType>
 BPlusTree<KeyType, ValueType>::BPlusTree(const std::string& filename, uint32_t order)

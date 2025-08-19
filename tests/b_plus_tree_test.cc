@@ -63,3 +63,55 @@ TEST_F(BPlusTreeTest, InsertionNoSplit) {
     // Next leaf pointer should be 0 (none)
     EXPECT_EQ(node.next_leaf_page_, 0u);
 }
+
+TEST_F(BPlusTreeTest, InsertionWithSplit) {
+    // Insert ORDER (4) or more keys → triggers split
+    tree->Insert(10, 100);
+    tree->Insert(20, 200);
+    tree->Insert(30, 300);
+    tree->Insert(40, 400); // this should cause a split
+
+    // Read root page
+    std::vector<std::byte> root_page;
+    ASSERT_TRUE(tree->DebugReadPage(tree->DebugRootPage(), root_page));
+
+    // Root should now be internal
+    ASSERT_EQ(static_cast<int>(root_page[0]), static_cast<int>(NodeType::Internal));
+
+    // Deserialize root
+    InternalNode<int> root;
+    tree->DebugDeserializeInternal(root_page, root);
+
+    ASSERT_EQ(root.keys_.size(), 1u);      // One separator key
+    ASSERT_EQ(root.children_.size(), 2u);  // Two children
+
+    // Left child
+    std::vector<std::byte> left_page;
+    ASSERT_TRUE(tree->DebugReadPage(root.children_[0], left_page));
+    LeafNode<int, int> left;
+    tree->DebugDeserializeLeaf(left_page, left);
+
+    // Right child
+    std::vector<std::byte> right_page;
+    ASSERT_TRUE(tree->DebugReadPage(root.children_[1], right_page));
+    LeafNode<int, int> right;
+    tree->DebugDeserializeLeaf(right_page, right);
+
+    // Verify keys distributed
+    EXPECT_EQ(left.keys_[0], 10);
+    EXPECT_EQ(left.keys_[1], 20);
+
+    EXPECT_EQ(right.keys_[0], 30);
+    EXPECT_EQ(right.keys_[1], 40);
+
+    // Check values
+    EXPECT_EQ(left.values_[0][0], 100);
+    EXPECT_EQ(left.values_[1][0], 200);
+    EXPECT_EQ(right.values_[0][0], 300);
+    EXPECT_EQ(right.values_[1][0], 400);
+
+    // Check leaf link
+    EXPECT_EQ(left.next_leaf_page_, root.children_[1]);
+    EXPECT_EQ(right.next_leaf_page_, 0u);
+    tree->DebugPrintTree();
+}
