@@ -1,5 +1,7 @@
 #include "parser/lexer.h"
 
+namespace Query {
+
 bool Lexer::isIdentStart(char c) { 
     return std::isalpha((unsigned char)c) || c=='_'; 
 }
@@ -30,7 +32,9 @@ char Lexer::peek(size_t k) const {
 }
 
 bool Lexer::iequals(std::string_view a, std::string_view b) { 
-    if (a.size() != b.size()) return false;
+    if (a.size() != b.size()) {
+        return false;
+    }
 
     for (size_t k = 0; k < a.size(); k++) { 
         if (std::tolower((unsigned char)a[k]) != std::tolower((unsigned char)b[k])) {
@@ -40,7 +44,7 @@ bool Lexer::iequals(std::string_view a, std::string_view b) {
     return true; 
 }
 
-TokenType Lexer::parseKw(std::string_view s){
+TokenType Lexer::parseKw(std::string_view s) {
     if (iequals(s,"select")) return TokenType::KwSelect;
     if (iequals(s,"from"))   return TokenType::KwFrom;
     if (iequals(s,"where"))  return TokenType::KwWhere;
@@ -52,6 +56,18 @@ TokenType Lexer::parseKw(std::string_view s){
     if (iequals(s,"and"))    return TokenType::KwAnd;
     if (iequals(s,"or"))     return TokenType::KwOr;
     if (iequals(s,"not"))    return TokenType::KwNot;
+    if (iequals(s,"create")) return TokenType::KwCreate;
+    if (iequals(s,"table"))  return TokenType::KwTable;
+    if (iequals(s,"alter"))  return TokenType::KwAlter;
+    if (iequals(s,"add"))    return TokenType::KwAdd;
+    if (iequals(s,"drop"))   return TokenType::KwDrop;
+    if (iequals(s,"column")) return TokenType::KwColumn;
+    if (iequals(s, "int16")) return TokenType::KwInt16;
+    if (iequals(s, "int32")) return TokenType::KwInt32;
+    if (iequals(s, "int64")) return TokenType::KwInt64;
+    if (iequals(s,"double")) return TokenType::KwDouble;
+    if (iequals(s,"text"))   return TokenType::KwText;
+    if (iequals(s,"bool"))   return TokenType::KwBool;
     return TokenType::Ident;
 }
 
@@ -124,29 +140,30 @@ Token Lexer::next() {
             bump(); 
             t.kind = TokenType::Gt; 
             return t;
-    }
-
-    if (c == '\'') {
-        bump();
-        std::string out;
-        while (true) {
-            char d = peek();
-            if (!d) throw std::runtime_error("unterminated string");
+        case '\'': {
             bump();
-            if (d == '\'') {
-                if (peek() == '\'') { // escaped quote: ''
-                    bump();
-                    out.push_back('\'');
+            std::string out;
+            while (true) {
+                char d = peek();
+                if (!d) throw std::runtime_error("unterminated string");
+                bump();
+                if (d == '\'') {
+                    if (peek() == '\'') { // escaped quote: ''
+                        bump();
+                        out.push_back('\'');
+                    } else {
+                        break;
+                    }
                 } else {
-                    break;
+                    out.push_back(d);
                 }
-            } else {
-                out.push_back(d);
             }
+            t.kind = TokenType::Str;
+            t.text = std::move(out);
+            return t;
         }
-        t.kind = TokenType::Str;
-        t.text = std::move(out);
-        return t;
+        default:
+            break;
     }
 
     auto isDigit = [&](char ch){ return std::isdigit((unsigned char)ch); };
@@ -200,3 +217,5 @@ Token Lexer::next() {
     throw std::runtime_error("Unexpected character at line " + std::to_string(loc.line) +
                              ", col " + std::to_string(loc.col));
 }
+
+} // namespace Query

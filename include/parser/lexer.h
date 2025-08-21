@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <vector>
 
+namespace Query {
+
 struct Loc { 
     size_t pos = 0;
     size_t line = 1;
@@ -15,14 +17,17 @@ enum class TokenType {
     End,
     // Keywords
     KwSelect, KwFrom, KwWhere, KwInsert, KwInto, KwValues, KwUpdate, KwSet, KwAnd, KwOr, KwNot,
+    // DDL
+    KwCreate, KwTable, KwAlter, KwAdd, KwDrop, KwColumn,
+    // Simple data types
+    KwInt16, KwInt32, KwInt64, KwDouble, KwText, KwBool,
     // Identifiers & literals
     Ident, Int, Float, Str,
     // Punctuation / ops
     Star, Comma, LParen, RParen,
     Eq, Ne, Lt, Le, Gt, Ge,
     // Unary ops
-    Plus, Minus, 
-    // Mul, Div
+    Plus, Minus,
 };
 
 struct Token {
@@ -44,10 +49,6 @@ public:
     Token next();
 
 private:
-    std::string_view sv;
-    size_t i = 0;
-    Loc loc{};
-
     // Check if a character can start an identifier
     static bool isIdentStart(char c);
 
@@ -68,4 +69,11 @@ private:
 
     // Parse a keyword from an identifier
     TokenType parseKw(std::string_view s);
+
+private:
+    std::string_view sv;
+    size_t i = 0;
+    Loc loc{};
 };
+
+} // namespace Query

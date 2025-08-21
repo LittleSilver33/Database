@@ -4,6 +4,7 @@
 #include "parser/parser.h"
 
 using ::testing::Test;
+using namespace Query;
 
 class ParserTest : public Test {
 protected:
@@ -130,6 +131,30 @@ protected:
         if (!up) return nullptr;
         s.release();
         return std::unique_ptr<Update>(up);
+    }
+    static std::unique_ptr<CreateTable> ParseCreateTable(std::string_view sql) {
+        Parser p(sql);
+        StmtPtr s = p.parseStatement();
+        auto* ct = dynamic_cast<CreateTable*>(s.get());
+        if (!ct) return nullptr;
+        s.release();
+        return std::unique_ptr<CreateTable>(ct);
+    }
+    static std::unique_ptr<DropTable> ParseDropTable(std::string_view sql) {
+        Parser p(sql);
+        StmtPtr s = p.parseStatement();
+        auto* dt = dynamic_cast<DropTable*>(s.get());
+        if (!dt) return nullptr;
+        s.release();
+        return std::unique_ptr<DropTable>(dt);
+    }
+    static std::unique_ptr<AlterTable> ParseAlterTable(std::string_view sql) {
+        Parser p(sql);
+        StmtPtr s = p.parseStatement();
+        auto* at = dynamic_cast<AlterTable*>(s.get());
+        if (!at) return nullptr;
+        s.release();
+        return std::unique_ptr<AlterTable>(at);
     }
 };
 
@@ -404,5 +429,143 @@ TEST_F(ParserTest, Error_Update_MissingSet) {
 
 TEST_F(ParserTest, Error_Where_EmptyAfterKeyword) {
     Parser p("SELECT * FROM t WHERE");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+// -----------------
+// CREATE TABLE
+// -----------------
+TEST_F(ParserTest, CreateTable_Basic_MultipleColumns_AllTypes) {
+    auto ct = ParseCreateTable("CREATE TABLE users (id INT32, name TEXT, small INT16, big INT64, ratio DOUBLE, admin BOOL)");
+    ASSERT_TRUE(ct);
+    EXPECT_EQ(ct->table, "users");
+    ASSERT_EQ(ct->columns.size(), 6u);
+
+    EXPECT_EQ(ct->columns[0].name, "id");
+    EXPECT_EQ(ct->columns[0].type, DataType::Int32);
+
+    EXPECT_EQ(ct->columns[1].name, "name");
+    EXPECT_EQ(ct->columns[1].type, DataType::Text);
+
+    EXPECT_EQ(ct->columns[2].name, "small");
+    EXPECT_EQ(ct->columns[2].type, DataType::Int16);
+
+    EXPECT_EQ(ct->columns[3].name, "big");
+    EXPECT_EQ(ct->columns[3].type, DataType::Int64);
+
+    EXPECT_EQ(ct->columns[4].name, "ratio");
+    EXPECT_EQ(ct->columns[4].type, DataType::Double);
+
+    EXPECT_EQ(ct->columns[5].name, "admin");
+    EXPECT_EQ(ct->columns[5].type, DataType::Bool);
+}
+
+TEST_F(ParserTest, CreateTable_CaseInsensitiveTypes_AndWhitespace) {
+    auto ct = ParseCreateTable("cReAtE   tAbLe   T\n(\n c1   int64 ,\n c2   TeXt\n)");
+    ASSERT_TRUE(ct);
+    EXPECT_EQ(ct->table, "T");
+    ASSERT_EQ(ct->columns.size(), 2u);
+    EXPECT_EQ(ct->columns[0].name, "c1");
+    EXPECT_EQ(ct->columns[0].type, DataType::Int64);
+    EXPECT_EQ(ct->columns[1].name, "c2");
+    EXPECT_EQ(ct->columns[1].type, DataType::Text);
+}
+
+// -------------
+// DROP TABLE
+// -------------
+TEST_F(ParserTest, DropTable_Basic) {
+    auto dt = ParseDropTable("DROP TABLE users");
+    ASSERT_TRUE(dt);
+    EXPECT_EQ(dt->table, "users");
+}
+
+// --------------
+// ALTER TABLE
+// --------------
+TEST_F(ParserTest, AlterTable_AddColumn_WithColumnKeyword) {
+    auto at = ParseAlterTable("ALTER TABLE users ADD COLUMN created_at INT64");
+    ASSERT_TRUE(at);
+    EXPECT_EQ(at->table, "users");
+    ASSERT_TRUE(std::holds_alternative<AlterTable::AddColumn>(at->op));
+    const auto& add = std::get<AlterTable::AddColumn>(at->op);
+    EXPECT_EQ(add.col.name, "created_at");
+    EXPECT_EQ(add.col.type, DataType::Int64);
+}
+
+TEST_F(ParserTest, AlterTable_AddColumn_WithoutColumnKeyword) {
+    auto at = ParseAlterTable("ALTER TABLE users ADD created_at INT32");
+    ASSERT_TRUE(at);
+    EXPECT_EQ(at->table, "users");
+    ASSERT_TRUE(std::holds_alternative<AlterTable::AddColumn>(at->op));
+    const auto& add = std::get<AlterTable::AddColumn>(at->op);
+    EXPECT_EQ(add.col.name, "created_at");
+    EXPECT_EQ(add.col.type, DataType::Int32);
+}
+
+TEST_F(ParserTest, AlterTable_DropColumn_WithColumnKeyword) {
+    auto at = ParseAlterTable("ALTER TABLE users DROP COLUMN ratio");
+    ASSERT_TRUE(at);
+    EXPECT_EQ(at->table, "users");
+    ASSERT_TRUE(std::holds_alternative<AlterTable::DropColumn>(at->op));
+    const auto& drop = std::get<AlterTable::DropColumn>(at->op);
+    EXPECT_EQ(drop.name, "ratio");
+}
+
+TEST_F(ParserTest, AlterTable_DropColumn_WithoutColumnKeyword) {
+    auto at = ParseAlterTable("ALTER TABLE users DROP admin");
+    ASSERT_TRUE(at);
+    EXPECT_EQ(at->table, "users");
+    ASSERT_TRUE(std::holds_alternative<AlterTable::DropColumn>(at->op));
+    const auto& drop = std::get<AlterTable::DropColumn>(at->op);
+    EXPECT_EQ(drop.name, "admin");
+}
+
+TEST_F(ParserTest, AlterTable_AlterColumnType) {
+    auto at = ParseAlterTable("ALTER TABLE users ALTER COLUMN score DOUBLE");
+    ASSERT_TRUE(at);
+    EXPECT_EQ(at->table, "users");
+    ASSERT_TRUE(std::holds_alternative<AlterTable::AlterColumn>(at->op));
+    const auto& alt = std::get<AlterTable::AlterColumn>(at->op);
+    EXPECT_EQ(alt.name, "score");
+    EXPECT_EQ(alt.type, DataType::Double);
+}
+
+// ----------------------
+// Negative/error cases
+// ----------------------
+TEST_F(ParserTest, Error_CreateTable_MissingParen) {
+    Parser p("CREATE TABLE t c INT32)");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_CreateTable_TrailingComma) {
+    Parser p("CREATE TABLE t (c INT32,)");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_CreateTable_UnknownType) {
+    Parser p("CREATE TABLE t (c UUID)");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_AlterTable_MissingOperation) {
+    Parser p("ALTER TABLE t");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_AlterTable_Drop_MissingName) {
+    Parser p("ALTER TABLE t DROP COLUMN");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_AlterTable_Alter_MissingColumnKeyword) {
+    // Your grammar requires the literal "COLUMN" before the name.
+    Parser p("ALTER TABLE t ALTER x INT32");
+    EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
+}
+
+TEST_F(ParserTest, Error_DropTable_MissingTableName) {
+    Parser p("DROP TABLE");
     EXPECT_THROW({ (void)p.parseStatement(); }, std::runtime_error);
 }

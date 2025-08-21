@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "parser/ast.h"
 
+using namespace Query;
+
 static std::unique_ptr<Literal> I(long long v) {
     return std::make_unique<Literal>(static_cast<int64_t>(v));
 }

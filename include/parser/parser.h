@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <iostream>
 
+namespace Query {
+
 class Parser {
 public:
     explicit Parser(std::string_view sql);
@@ -13,9 +15,6 @@ public:
     StmtPtr parseStatement();
 
 private:
-    Lexer lex; 
-    Token cur;
-
     [[noreturn]] void error(const std::string& msg);
 
     void consume(TokenType k, const char* what);
@@ -35,5 +34,18 @@ private:
     std::unique_ptr<Insert> parseInsert();
     std::vector<std::pair<std::string, ExprPtr>> parseAssignments();
     std::unique_ptr<Update> parseUpdate();
+
+    DataType parseDataType();
+    ColumnDef parseColumnDef();
+    std::vector<ColumnDef> parseColumnDefList();
+
+    std::unique_ptr<CreateTable> parseCreateTable();
+    std::unique_ptr<AlterTable>  parseAlterTable();
+    std::unique_ptr<DropTable>   parseDropTable();
+
+private:
+    Lexer lex; 
+    Token cur;
 };
 
+} // namespace Query

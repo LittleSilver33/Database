@@ -10,6 +10,23 @@
 #include <optional>
 #include <cstdint>
 
+namespace Query {
+
+// A datatype for a column in a table
+enum class DataType {
+    Int16, // short
+    Int32, // int
+    Int64, // long long
+    Double,
+    Text,
+    Bool
+};
+
+struct ColumnDef {
+    std::string name;
+    DataType type;
+};
+
 // Base class for all expressions
 struct Expr {
     virtual ~Expr() = default;
@@ -30,6 +47,7 @@ struct Literal : Expr {
 
 // Represents an identifier (e.g. column name)
 struct Identifier : Expr {
+    // todo: store actual reference to identifier
     std::string name;
     explicit Identifier(std::string n) : name(std::move(n)) {}
 };
@@ -91,3 +109,49 @@ struct Update : Stmt {
     std::vector<std::pair<std::string, ExprPtr>> assignments;
     std::optional<ExprPtr> where;
 };
+
+struct CreateTable : Stmt {
+    std::string table;
+    std::vector<ColumnDef> columns;
+};
+
+struct DropTable : Stmt {
+    std::string table;
+};
+
+struct AlterTable : Stmt {
+    struct AddColumn { 
+        ColumnDef col;
+    };
+    struct DropColumn { 
+        std::string name;
+    };
+    struct AlterColumn { 
+        std::string name;
+        DataType type;
+    };
+    using Op = std::variant<AddColumn, DropColumn, AlterColumn>;
+    
+    Op op;
+    std::string table;
+};
+
+inline const char* to_string(DataType t) {
+    switch (t) {
+        case DataType::Int16:
+            return "SHORT";
+        case DataType::Int32:
+            return "INT";
+        case DataType::Int64:
+            return "LONG";
+        case DataType::Double:
+            return "DOUBLE";
+        case DataType::Text:
+            return "TEXT";
+        case DataType::Bool:
+            return "BOOL";
+    }
+    return "?";
+}
+
+} // namespace Query

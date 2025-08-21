@@ -1,17 +1,28 @@
 #include "parser/parser.h"
 
+namespace Query {
+
 Parser::Parser(std::string_view sql)
-    : lex(sql)
-{
+    : lex(sql) {
     cur = lex.next();
 }
 
 StmtPtr Parser::parseStatement() {
     switch (cur.kind) {
-        case TokenType::KwSelect: return parseSelect();
-        case TokenType::KwInsert: return parseInsert();
-        case TokenType::KwUpdate: return parseUpdate();
-        default: error("expected SELECT, INSERT, or UPDATE");
+        case TokenType::KwSelect:
+            return parseSelect();
+        case TokenType::KwInsert:
+            return parseInsert();
+        case TokenType::KwUpdate:
+            return parseUpdate();
+        case TokenType::KwCreate:
+            return parseCreateTable();
+        case TokenType::KwAlter:
+            return parseAlterTable();
+        case TokenType::KwDrop:
+            return parseDropTable();
+        default:
+        error("expected SELECT, INSERT, UPDATE, CREATE, ALTER, or DROP");
     }
 }
 
@@ -36,40 +47,48 @@ bool Parser::accept(TokenType k) {
 
 int Parser::precOf(TokenType k) {
     switch (k) {
-        case TokenType::KwOr: return 1;
-        case TokenType::KwAnd: return 2;
-        case TokenType::Eq: case TokenType::Ne: case TokenType::Lt: case TokenType::Le: case TokenType::Gt: case TokenType::Ge: return 3;
-        default: return 0;
+        case TokenType::KwOr: 
+            return 1;
+        case TokenType::KwAnd: 
+            return 2;
+        case TokenType::Eq: case TokenType::Ne: case TokenType::Lt:
+        case TokenType::Le: case TokenType::Gt: case TokenType::Ge:
+            return 3;
+        default:
+            return 0;
     }
 }
 
-ExprPtr Parser::parsePrimary(){
-    if (cur.kind==TokenType::Ident) { 
-        auto id = std::make_unique<Identifier>(cur.text); 
-        cur = lex.next(); 
-        return id; 
+ExprPtr Parser::parsePrimary() {
+    switch (cur.kind) {
+        case TokenType::Ident: {
+            auto id = std::make_unique<Identifier>(cur.text); 
+            cur = lex.next(); 
+            return id;
+        }
+        case TokenType::Int: {
+            auto v = std::make_unique<Literal>((int64_t)cur.i64);
+            cur = lex.next();
+            return v;
+        }
+        case TokenType::Float: {
+            auto v = std::make_unique<Literal>((double)cur.f64);
+            cur = lex.next();
+            return v;
+        }
+        case TokenType::Str: {
+            auto v = std::make_unique<Literal>(cur.text);
+            cur = lex.next();
+            return v;
+        }
+        default:
+            if (accept(TokenType::LParen)) {
+                auto e = parseExpr();
+                consume(TokenType::RParen, ")");
+                return e;
+            }
+            error("expected primary expression");
     }
-    if (cur.kind == TokenType::Int) {
-        auto v = std::make_unique<Literal>((int64_t)cur.i64);
-        cur = lex.next();
-        return v;
-    }
-    if (cur.kind == TokenType::Float) {
-        auto v = std::make_unique<Literal>((double)cur.f64);
-        cur = lex.next();
-        return v;
-    }
-    if (cur.kind == TokenType::Str) {
-        auto v = std::make_unique<Literal>(cur.text);
-        cur = lex.next();
-        return v;
-    }
-    if (accept(TokenType::LParen)) {
-        auto e = parseExpr();
-        consume(TokenType::RParen, ")");
-        return e;
-    }
-    error("expected primary expression");
 }
 
 ExprPtr Parser::parseUnary() {
@@ -84,31 +103,42 @@ ExprPtr Parser::parseUnary() {
 
 Binary::Op Parser::binOpFrom(TokenType k) {
     switch (k) {
-        case TokenType::Eq: return Binary::Op::Eq;
-        case TokenType::Ne: return Binary::Op::Ne;
-        case TokenType::Lt: return Binary::Op::Lt;
-        case TokenType::Le: return Binary::Op::Le;
-        case TokenType::Gt: return Binary::Op::Gt;
-        case TokenType::Ge: return Binary::Op::Ge;
-        case TokenType::KwAnd: return Binary::Op::And;
-        case TokenType::KwOr: return Binary::Op::Or;
+        case TokenType::Eq:
+            return Binary::Op::Eq;
+        case TokenType::Ne:
+            return Binary::Op::Ne;
+        case TokenType::Lt:
+            return Binary::Op::Lt;
+        case TokenType::Le:
+            return Binary::Op::Le;
+        case TokenType::Gt:
+            return Binary::Op::Gt;
+        case TokenType::Ge:
+            return Binary::Op::Ge;
+        case TokenType::KwAnd:
+            return Binary::Op::And;
+        case TokenType::KwOr:
+            return Binary::Op::Or;
         default: 
             throw std::runtime_error("Unexpected binary operator: " + std::to_string(static_cast<int>(k)));
     }
 }
 
 ExprPtr Parser::parseBinRHS(int minPrec, ExprPtr lhs){
-    while (true){
-    int prec = precOf(cur.kind);
-    if (prec < minPrec) {
-        return lhs;
-    }
-    TokenType opTok = cur.kind; cur = lex.next();
-    auto rhs = parseUnary();
-    // right-associativity: none here; NOT is unary handled above
-    int nextPrec = precOf(cur.kind);
-    if (nextPrec > prec) rhs = parseBinRHS(prec+1, std::move(rhs));
-    lhs = std::make_unique<Binary>(binOpFrom(opTok), std::move(lhs), std::move(rhs));
+    while (true) {
+        int prec = precOf(cur.kind);
+        if (prec < minPrec) {
+            return lhs;
+        }
+
+        TokenType opTok = cur.kind;
+        cur = lex.next();
+        auto rhs = parseUnary();
+        
+        // right-associativity: none here; NOT is unary handled above
+        int nextPrec = precOf(cur.kind);
+        if (nextPrec > prec) rhs = parseBinRHS(prec + 1, std::move(rhs));
+        lhs = std::make_unique<Binary>(binOpFrom(opTok), std::move(lhs), std::move(rhs));
     }
 }
 
@@ -230,3 +260,122 @@ std::unique_ptr<Update> Parser::parseUpdate() {
     }
     return up;
 }
+
+DataType Parser::parseDataType() {
+    switch (cur.kind) {
+        case TokenType::KwInt16:
+            cur = lex.next();
+            return DataType::Int16;
+        case TokenType::KwInt32:
+            cur = lex.next();
+            return DataType::Int32;
+        case TokenType::KwInt64:
+            cur = lex.next();
+            return DataType::Int64;
+        case TokenType::KwDouble:
+            cur = lex.next();
+            return DataType::Double;
+        case TokenType::KwText:
+            cur = lex.next();
+            return DataType::Text;
+        case TokenType::KwBool:
+            cur = lex.next();
+            return DataType::Bool;
+        default:
+            error("expected data type (INT16, INT32, INT64, DOUBLE, TEXT, BOOL)");
+    }
+}
+
+ColumnDef Parser::parseColumnDef() {
+    if (cur.kind != TokenType::Ident) error("expected column name");
+    ColumnDef c;
+    c.name = cur.text;
+    cur = lex.next();
+    c.type = parseDataType();
+    return c;
+}
+
+std::vector<ColumnDef> Parser::parseColumnDefList() {
+    std::vector<ColumnDef> cols;
+    cols.push_back(parseColumnDef());
+    while (accept(TokenType::Comma)) {
+            cols.push_back(parseColumnDef());
+    }
+    return cols;
+}
+
+// CREATE TABLE ...
+std::unique_ptr<CreateTable> Parser::parseCreateTable() {
+    consume(TokenType::KwCreate, "CREATE");
+    consume(TokenType::KwTable, "TABLE");
+    if (cur.kind != TokenType::Ident) error("expected table name after CREATE TABLE");
+    auto ct = std::make_unique<CreateTable>();
+    ct->table = cur.text;
+    cur = lex.next();
+    consume(TokenType::LParen, "(");
+    ct->columns = parseColumnDefList();
+    consume(TokenType::RParen, ")");
+    return ct;
+}
+
+// DROP TABLE ...
+std::unique_ptr<DropTable> Parser::parseDropTable() {
+    consume(TokenType::KwDrop, "DROP");
+    consume(TokenType::KwTable, "TABLE");
+    if (cur.kind != TokenType::Ident) error("expected table name after DROP TABLE");
+    auto dt = std::make_unique<DropTable>();
+    dt->table = cur.text;
+    cur = lex.next();
+    return dt;
+}
+
+// ALTER TABLE ...
+std::unique_ptr<AlterTable> Parser::parseAlterTable() {
+    consume(TokenType::KwAlter, "ALTER");
+    consume(TokenType::KwTable, "TABLE");
+    if (cur.kind != TokenType::Ident) error("expected table name after ALTER TABLE");
+    auto at = std::make_unique<AlterTable>();
+    at->table = cur.text;
+    cur = lex.next();
+
+    // ADD COLUMN <name> <type>
+    if (accept(TokenType::KwAdd)) {
+        // optional COLUMN
+        accept(TokenType::KwColumn);
+        ColumnDef c = parseColumnDef();
+        at->op = AlterTable::AddColumn{ std::move(c) };
+        return at;
+    }
+
+    // DROP COLUMN <name>
+    if (accept(TokenType::KwDrop)) {
+        accept(TokenType::KwColumn);
+        if (cur.kind != TokenType::Ident) {
+            error("expected column name to drop");
+        }
+
+        std::string name = cur.text;
+        cur = lex.next();
+        at->op = AlterTable::DropColumn{ std::move(name) };
+        return at;
+    }
+
+    // ALTER COLUMN <name> <type>
+    if (accept(TokenType::KwAlter)) {
+        consume(TokenType::KwColumn, "COLUMN");
+        if (cur.kind != TokenType::Ident) {
+            error("expected column name to alter");
+        }
+
+        std::string name = cur.text;
+        cur = lex.next();
+        DataType datatype = parseDataType();
+        cur = lex.next();
+        at->op = AlterTable::AlterColumn{ std::move(name), datatype };
+        return at;
+    }
+
+    error("expected ADD, DROP, or ALTER after ALTER TABLE");
+}
+
+} // namespace Query
